@@ -91,6 +91,8 @@ CRITICAL RULES:
 - Use double quotes around string arguments: "filename.txt"
 - Function names must match exactly: runBashCommand, readFile, or writeFile
 - The <name> tag must exactly match the function name
+- There should be AT MOST ONE pair of <think> tag in your response.
+- There should be AT MOST ONE pair of <tool> tag in your response.
 
 After seeing the tool result (OBSERVATION), you can continue with another tool call, or complete the task.
 

@@ -10,6 +10,7 @@ export async function callOllama(prompt: string): Promise<string> {
         stream: false,
     };
     
+    // console.log('Request body:', JSON.stringify(requestBody));
     const response = await fetch('http://127.0.0.1:11434/api/generate', {
         method: 'POST',
         headers: {
@@ -24,6 +25,7 @@ export async function callOllama(prompt: string): Promise<string> {
     }
 
     const data = await response.json() as OllamaResponse;
+    // console.log('Response data:', JSON.stringify(data));
     
     if (data.response) {
         return data.response;

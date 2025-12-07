@@ -14,7 +14,6 @@ import { runAgent } from './agent';
     //     console.error('Failed to read README.md:', e);
     // }
 
-    // Run the agent with CLI arguments
     const prompt = process.argv.slice(2).join(' ');
     if (prompt) {
         await runAgent(prompt);

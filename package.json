@@ -2,12 +2,19 @@
   "name": "progagent",
   "module": "index.ts",
   "type": "module",
+  "bin": {
+    "progagent": "./entrypoint.tsx"
+  },
   "dependencies": {
     "@babel/parser": "^7.28.5",
-    "eta": "^3.4.0"
+    "eta": "^3.4.0",
+    "ink": "^6.5.1",
+    "ink-text-input": "^6.0.0",
+    "react": "^19.2.1"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/react": "^19.2.7"
   },
   "peerDependencies": {
     "typescript": "^5"

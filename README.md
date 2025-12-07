@@ -36,7 +36,28 @@ bun install
 
 ## Usage
 
-### Run the agent:
+### Interactive CLI Mode (Recommended)
+
+Run the interactive terminal interface:
+
+```bash
+bun run entrypoint.tsx
+```
+
+Or after installing/linking globally:
+
+```bash
+progagent
+```
+
+This will drop you into an interactive CLI where you can type commands for the agent. For example:
+- `write a hello world program`
+
+Press `ESC` to exit when done.
+
+### Command-Line Argument Mode
+
+Run the agent with a direct command:
 
 ```bash
 bun run index.ts "Task description"
@@ -59,9 +80,13 @@ bun run index.ts
 ## Project Structure
 
 - `agent.ts` - Main agentic loop that uses the model and tools to accomplish tasks
+- `agent-runner.ts` - Agent runner with event callbacks for UI integration
 - `agent-test.ts` - Unit tests for the agent parsing functions
 - `model.ts` - Ollama API client that calls the local LLM
-- `index.ts` - Test script for bash and file I/O utilities
+- `index.ts` - Entry point for command-line argument mode
+- `entrypoint.tsx` - Entry point for interactive CLI mode (uses Ink/React)
+- `ui.tsx` - Interactive terminal UI component built with Ink
 - `tools/bash-tool.ts` - Utility for running bash commands
 - `tools/file-io.ts` - File read/write utilities
+- `tools/parsing.ts` - Tool call parsing utilities
 - `templates/system-prompt.eta` - Eta template for the agent system prompt
