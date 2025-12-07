@@ -1,5 +1,5 @@
-import { runBashCommand } from './tools/bash_tool';
-import { readFile } from './tools/file_io';
+import { runBashCommand } from './tools/bash-tool';
+import { readFile } from './tools/file-io';
 
 (async () => {
     // Test bash command runner

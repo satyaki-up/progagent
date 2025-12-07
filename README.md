@@ -1,6 +1,6 @@
 # progagent
 
-A TypeScript agent project that interacts with Ollama (local LLM) and provides utilities for running bash commands and file I/O operations.
+Coding agent.
 
 ## Prerequisites
 
@@ -36,10 +36,16 @@ bun install
 
 ## Usage
 
-### Run the model (calls Ollama):
+### Run the agent:
 
 ```bash
-bun run model.ts
+bun run agent.ts
+```
+
+### Run unit tests:
+
+```bash
+bun test ./agent-test.ts
 ```
 
 ### Run the test script (tests bash and file I/O tools):
@@ -50,9 +56,10 @@ bun run index.ts
 
 ## Project Structure
 
+- `agent.ts` - Main agentic loop that uses the model and tools to accomplish tasks
+- `agent-test.ts` - Unit tests for the agent parsing functions
 - `model.ts` - Ollama API client that calls the local LLM
 - `index.ts` - Test script for bash and file I/O utilities
-- `tools/bash_tool.ts` - Utility for running bash commands
-- `tools/file_io.ts` - File read/write utilities
-
-This project uses [Bun](https://bun.com), a fast all-in-one JavaScript runtime.
+- `tools/bash-tool.ts` - Utility for running bash commands
+- `tools/file-io.ts` - File read/write utilities
+- `templates/system-prompt.eta` - Eta template for the agent system prompt

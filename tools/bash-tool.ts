@@ -20,3 +20,4 @@ export async function runBashCommand(command: string): Promise<{ output: string;
         return { output, status };
     }
 }
+

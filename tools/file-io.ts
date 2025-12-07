@@ -18,3 +18,4 @@ export async function readFile(filename: string): Promise<string> {
 export async function writeFile(filename: string, content: string): Promise<void> {
     await fs.writeFile(filename, content, { encoding: 'utf8' });
 }
+

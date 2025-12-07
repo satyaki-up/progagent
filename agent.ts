@@ -1,9 +1,156 @@
 import { Eta } from 'eta';
 import { callOllama } from './model';
-import { runBashCommand } from './tools/bash_tool';
-import { readFile, writeFile } from './tools/file_io';
+import { runBashCommand } from './tools/bash-tool';
+import { readFile, writeFile } from './tools/file-io';
 
 const eta = new Eta({ views: './templates' });
+
+export interface ParsedTool {
+    toolName: string;
+    args: string[];
+    toolCall: string;
+}
+
+/**
+ * Parses a tool tag from the model response and extracts the tool name and arguments.
+ * @param toolContent - The content inside the <tool>...</tool> tags
+ * @returns Parsed tool information or null if parsing fails
+ */
+export function parseToolFromResponse(toolContent: string): ParsedTool | null {
+    const nameMatch = toolContent.match(/<name>([\s\S]*?)<\/name>/i);
+    const callMatch = toolContent.match(/<call>([\s\S]*?)<\/call>/i);
+    
+    if (!nameMatch || !callMatch || !nameMatch[1] || !callMatch[1]) {
+        return null;
+    }
+
+    const toolCall = callMatch[1].trim();
+    
+    // Parse function call handling nested parentheses and quoted strings
+    let toolName = '';
+    let argsString = '';
+    let parenCount = 0;
+    let inQuotes = false;
+    let quoteChar = '';
+    let i = 0;
+    
+    // Extract function name
+    while (i < toolCall.length && toolCall[i] !== undefined && /\w/.test(toolCall[i] ?? '')) {
+        toolName += toolCall[i] ?? '';
+        i++;
+    }
+    
+    // Skip whitespace and opening parenthesis
+    while (i < toolCall.length && (toolCall[i] === ' ' || toolCall[i] === '(')) {
+        if (toolCall[i] === '(') {
+            parenCount = 1;
+            i++;
+            break;
+        }
+        i++;
+    }
+    
+    // Extract arguments string, handling nested parentheses and quotes
+    let startIdx = i;
+    while (i < toolCall.length) {
+        const char = toolCall[i];
+        const nextChar = i + 1 < toolCall.length ? toolCall[i + 1] : undefined;
+        
+        if (!inQuotes && char === '(') {
+            parenCount++;
+        } else if (!inQuotes && char === ')') {
+            parenCount--;
+            if (parenCount === 0) {
+                argsString = toolCall.substring(startIdx, i);
+                break;
+            }
+        } else if (!inQuotes && (char === '"' || char === "'")) {
+            inQuotes = true;
+            quoteChar = char;
+        } else if (inQuotes && char === '\\' && nextChar !== undefined) {
+            // Escaped character (including escaped quotes) - include both in argsString
+            i += 2;
+            continue;
+        } else if (inQuotes && char === quoteChar) {
+            inQuotes = false;
+            quoteChar = '';
+        }
+        i++;
+    }
+    
+    if (!toolName || parenCount !== 0) {
+        return null;
+    }
+    
+    argsString = argsString.trim();
+    
+    const args: string[] = [];
+    if (argsString) {
+        // Parse arguments handling escaped quotes properly
+        let currentArg = '';
+        inQuotes = false;
+        quoteChar = '';
+        i = 0;
+        
+        while (i < argsString.length) {
+            const char = argsString[i];
+            const nextChar = i + 1 < argsString.length ? argsString[i + 1] : undefined;
+            
+            if (!inQuotes && (char === '"' || char === "'")) {
+                inQuotes = true;
+                quoteChar = char;
+                i++;
+            } else if (inQuotes && char === quoteChar && nextChar !== quoteChar) {
+                // Closing quote (not escaped)
+                inQuotes = false;
+                args.push(currentArg);
+                currentArg = '';
+                quoteChar = '';
+                i++;
+                // Skip comma and whitespace after closing quote
+                while (i < argsString.length && (argsString[i] === ',' || argsString[i] === ' ')) {
+                    i++;
+                }
+            } else if (inQuotes && char === '\\' && nextChar !== undefined) {
+                // Escaped character (quote, newline, etc.)
+                if (nextChar === quoteChar) {
+                    // Escaped quote - add just the quote
+                    currentArg += quoteChar;
+                } else if (nextChar === 'n') {
+                    // Escaped newline
+                    currentArg += '\n';
+                } else if (nextChar === 't') {
+                    // Escaped tab
+                    currentArg += '\t';
+                } else {
+                    // Other escape sequence - include both characters
+                    currentArg += char + nextChar;
+                }
+                i += 2;
+            } else if (inQuotes) {
+                currentArg += char;
+                i++;
+            } else if (char === ',') {
+                if (currentArg.trim()) {
+                    args.push(currentArg.trim());
+                    currentArg = '';
+                }
+                i++;
+            } else if (char !== ' ') {
+                currentArg += char;
+                i++;
+            } else {
+                i++;
+            }
+        }
+        
+        if (currentArg.trim()) {
+            args.push(currentArg.trim());
+        }
+    }
+
+    return { toolName, args, toolCall };
+}
 
 /**
  * Runs a ReAct-style agentic loop that uses the model and tools to accomplish a task.
@@ -11,7 +158,7 @@ const eta = new Eta({ views: './templates' });
  * @returns The final result from the agent
  */
 export async function runAgent(prompt: string): Promise<string> {
-    const systemPrompt = eta.render('system_prompt', {});
+    const systemPrompt = eta.render('system-prompt', {});
 
     let conversationHistory = `${systemPrompt}\n\nTask: ${prompt}\n\n`;
     let stepCount = 0;
@@ -47,81 +194,14 @@ export async function runAgent(prompt: string): Promise<string> {
             continue;
         }
 
-        const toolContent = toolMatch[1];
-        const nameMatch = toolContent.match(/<name>([\s\S]*?)<\/name>/i);
-        const callMatch = toolContent.match(/<call>([\s\S]*?)<\/call>/i);
-        
-        if (!nameMatch || !callMatch || !nameMatch[1] || !callMatch[1]) {
-            console.warn('Warning: Tool tag missing name or call. Adding to history.');
+        const parsedTool = parseToolFromResponse(toolMatch[1]);
+        if (!parsedTool) {
+            console.warn('Warning: Could not parse tool from response. Adding to history.');
             conversationHistory += `Agent: ${modelResponse}\n\n`;
             continue;
         }
 
-        const toolCall = callMatch[1].trim();
-        const actionMatch = toolCall.match(/(\w+)\(([^)]*)\)/);
-        
-        if (!actionMatch || !actionMatch[1]) {
-            console.warn('Warning: Could not parse function call from tool. Adding to history.');
-            conversationHistory += `Agent: ${modelResponse}\n\n`;
-            continue;
-        }
-
-        const toolName = actionMatch[1];
-        const argsString = (actionMatch[2] ?? '').trim();
-        
-        const args: string[] = [];
-        if (argsString) {
-            // Parse arguments handling escaped quotes properly
-            let currentArg = '';
-            let inQuotes = false;
-            let quoteChar = '';
-            let i = 0;
-            
-            while (i < argsString.length) {
-                const char = argsString[i];
-                const nextChar = argsString[i + 1];
-                
-                if (!inQuotes && (char === '"' || char === "'")) {
-                    inQuotes = true;
-                    quoteChar = char;
-                    i++;
-                } else if (inQuotes && char === quoteChar && nextChar !== quoteChar) {
-                    // Closing quote (not escaped)
-                    inQuotes = false;
-                    args.push(currentArg);
-                    currentArg = '';
-                    quoteChar = '';
-                    i++;
-                    // Skip comma and whitespace after closing quote
-                    while (i < argsString.length && (argsString[i] === ',' || argsString[i] === ' ')) {
-                        i++;
-                    }
-                } else if (inQuotes && char === '\\' && nextChar === quoteChar) {
-                    // Escaped quote
-                    currentArg += quoteChar;
-                    i += 2;
-                } else if (inQuotes) {
-                    currentArg += char;
-                    i++;
-                } else if (char === ',') {
-                    if (currentArg.trim()) {
-                        args.push(currentArg.trim());
-                        currentArg = '';
-                    }
-                    i++;
-                } else if (char !== ' ') {
-                    currentArg += char;
-                    i++;
-                } else {
-                    i++;
-                }
-            }
-            
-            if (currentArg.trim()) {
-                args.push(currentArg.trim());
-            }
-        }
-
+        const { toolName, args, toolCall } = parsedTool;
         console.log(`Executing tool: ${toolName}(${args.join(', ')})`);
 
         let observation: string;
