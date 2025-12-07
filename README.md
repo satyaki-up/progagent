@@ -2,7 +2,7 @@
 
 Coding agent.
 
-[![Watch the video](https://raw.githubusercontent.com/satyaki-up/progagent/main/progagent_demo.mov)](https://raw.githubusercontent.com/satyaki-up/progagent/main/progagent_demo.mov)
+[![Demo](https://img.youtube.com/vi/bTsR5GdWe5A/0.jpg)](https://www.youtube.com/watch?v=bTsR5GdWe5A)
 
 ## Prerequisites
 
