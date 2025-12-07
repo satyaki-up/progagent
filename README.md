@@ -39,7 +39,9 @@ bun install
 ### Run the agent:
 
 ```bash
-bun run agent.ts
+bun run index.ts "Task description"
+
+bun run index.ts "Write a simple python program which prints Hello, world to the console, and save it to a file called hello.py in the current directory."
 ```
 
 ### Run unit tests:

@@ -3,6 +3,7 @@
   "module": "index.ts",
   "type": "module",
   "dependencies": {
+    "@babel/parser": "^7.28.5",
     "eta": "^3.4.0"
   },
   "devDependencies": {

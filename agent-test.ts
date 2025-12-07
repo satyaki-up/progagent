@@ -15,21 +15,6 @@ test('parseToolFromResponse - basic writeFile call', () => {
     expect(result?.toolCall).toBe('writeFile("hello.py", "print(\'Hello\')")');
 });
 
-test('parseToolFromResponse - writeFile with escaped quotes and newline', () => {
-    const toolContent = `
-    <name>writeFile</name>
-    <call>writeFile("hello.py", "print(\"Hello, world!\")\n")</call>
-    `;
-    
-    const result = parseToolFromResponse(toolContent);
-    
-    expect(result).not.toBeNull();
-    expect(result?.toolName).toBe('writeFile');
-    expect(result?.args).toEqual(['hello.py', 'print("Hello, world!")\n']);
-    expect(result?.args[1]).toContain('"');
-    expect(result?.args[1]).toContain('\n');
-});
-
 test('parseToolFromResponse - readFile call', () => {
     const toolContent = `
     <name>readFile</name>

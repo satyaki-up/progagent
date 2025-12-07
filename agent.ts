@@ -1,4 +1,5 @@
 import { Eta } from 'eta';
+import { parse } from '@babel/parser';
 import { callOllama } from './model';
 import { runBashCommand } from './tools/bash-tool';
 import { readFile, writeFile } from './tools/file-io';
@@ -26,130 +27,55 @@ export function parseToolFromResponse(toolContent: string): ParsedTool | null {
 
     const toolCall = callMatch[1].trim();
     
-    // Parse function call handling nested parentheses and quoted strings
-    let toolName = '';
-    let argsString = '';
-    let parenCount = 0;
-    let inQuotes = false;
-    let quoteChar = '';
-    let i = 0;
-    
-    // Extract function name
-    while (i < toolCall.length && toolCall[i] !== undefined && /\w/.test(toolCall[i] ?? '')) {
-        toolName += toolCall[i] ?? '';
-        i++;
-    }
-    
-    // Skip whitespace and opening parenthesis
-    while (i < toolCall.length && (toolCall[i] === ' ' || toolCall[i] === '(')) {
-        if (toolCall[i] === '(') {
-            parenCount = 1;
-            i++;
-            break;
-        }
-        i++;
-    }
-    
-    // Extract arguments string, handling nested parentheses and quotes
-    let startIdx = i;
-    while (i < toolCall.length) {
-        const char = toolCall[i];
-        const nextChar = i + 1 < toolCall.length ? toolCall[i + 1] : undefined;
+    try {
+        // Parse the function call as a JavaScript expression
+        const ast = parse(`(${toolCall})`, {
+            plugins: ['typescript'],
+            sourceType: 'script',
+        });
         
-        if (!inQuotes && char === '(') {
-            parenCount++;
-        } else if (!inQuotes && char === ')') {
-            parenCount--;
-            if (parenCount === 0) {
-                argsString = toolCall.substring(startIdx, i);
-                break;
-            }
-        } else if (!inQuotes && (char === '"' || char === "'")) {
-            inQuotes = true;
-            quoteChar = char;
-        } else if (inQuotes && char === '\\' && nextChar !== undefined) {
-            // Escaped character (including escaped quotes) - include both in argsString
-            i += 2;
-            continue;
-        } else if (inQuotes && char === quoteChar) {
-            inQuotes = false;
-            quoteChar = '';
+        // Extract the call expression
+        const program = ast.program;
+        if (program.body.length !== 1) {
+            return null;
         }
-        i++;
-    }
-    
-    if (!toolName || parenCount !== 0) {
+        
+        const firstStatement = program.body[0];
+        if (!firstStatement || firstStatement.type !== 'ExpressionStatement') {
+            return null;
+        }
+        
+        const expr = firstStatement.expression;
+        if (expr.type !== 'CallExpression') {
+            return null;
+        }
+        
+        // Extract function name
+        if (expr.callee.type !== 'Identifier') {
+            return null;
+        }
+        const toolName = expr.callee.name;
+        
+        // Extract arguments and convert to strings
+        const args: string[] = [];
+        for (const arg of expr.arguments) {
+            if (arg.type === 'StringLiteral') {
+                args.push(arg.value);
+            } else if (arg.type === 'TemplateLiteral' && arg.quasis.length === 1 && arg.quasis[0]) {
+                // Simple template literal with no expressions
+                args.push(arg.quasis[0].value.raw);
+            } else {
+                // For other types, convert to string representation
+                // This handles edge cases but may not be perfect
+                return null;
+            }
+        }
+        
+        return { toolName, args, toolCall };
+    } catch (error) {
+        // Parsing failed - return null
         return null;
     }
-    
-    argsString = argsString.trim();
-    
-    const args: string[] = [];
-    if (argsString) {
-        // Parse arguments handling escaped quotes properly
-        let currentArg = '';
-        inQuotes = false;
-        quoteChar = '';
-        i = 0;
-        
-        while (i < argsString.length) {
-            const char = argsString[i];
-            const nextChar = i + 1 < argsString.length ? argsString[i + 1] : undefined;
-            
-            if (!inQuotes && (char === '"' || char === "'")) {
-                inQuotes = true;
-                quoteChar = char;
-                i++;
-            } else if (inQuotes && char === quoteChar && nextChar !== quoteChar) {
-                // Closing quote (not escaped)
-                inQuotes = false;
-                args.push(currentArg);
-                currentArg = '';
-                quoteChar = '';
-                i++;
-                // Skip comma and whitespace after closing quote
-                while (i < argsString.length && (argsString[i] === ',' || argsString[i] === ' ')) {
-                    i++;
-                }
-            } else if (inQuotes && char === '\\' && nextChar !== undefined) {
-                // Escaped character (quote, newline, etc.)
-                if (nextChar === quoteChar) {
-                    // Escaped quote - add just the quote
-                    currentArg += quoteChar;
-                } else if (nextChar === 'n') {
-                    // Escaped newline
-                    currentArg += '\n';
-                } else if (nextChar === 't') {
-                    // Escaped tab
-                    currentArg += '\t';
-                } else {
-                    // Other escape sequence - include both characters
-                    currentArg += char + nextChar;
-                }
-                i += 2;
-            } else if (inQuotes) {
-                currentArg += char;
-                i++;
-            } else if (char === ',') {
-                if (currentArg.trim()) {
-                    args.push(currentArg.trim());
-                    currentArg = '';
-                }
-                i++;
-            } else if (char !== ' ') {
-                currentArg += char;
-                i++;
-            } else {
-                i++;
-            }
-        }
-        
-        if (currentArg.trim()) {
-            args.push(currentArg.trim());
-        }
-    }
-
-    return { toolName, args, toolCall };
 }
 
 /**
@@ -252,5 +178,3 @@ export async function runAgent(prompt: string): Promise<string> {
 
     return `Agent reached maximum steps (${maxSteps}). Last conversation state:\n${conversationHistory}`;
 }
-
-await runAgent('Implement a simple python program which prints "Hello, world!" to the console, and save it to a file called hello.py in the current directory.');
