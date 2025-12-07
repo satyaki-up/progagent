@@ -2,6 +2,8 @@
 
 Coding agent.
 
+[![Watch the video](https://raw.githubusercontent.com/satyaki-up/progagent/main/progagent_demo.mov)](https://raw.githubusercontent.com/satyaki-up/progagent/main/progagent_demo.mov)
+
 ## Prerequisites
 
 ### 1. Install and Run Ollama
