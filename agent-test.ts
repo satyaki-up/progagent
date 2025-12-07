@@ -1,5 +1,5 @@
 import { test, expect } from 'bun:test';
-import { parseToolFromResponse } from './agent';
+import { parseToolFromResponse } from './tools/parsing';
 
 test('parseToolFromResponse - basic writeFile call', () => {
     const toolContent = `
