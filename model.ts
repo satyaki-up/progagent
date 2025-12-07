@@ -8,8 +8,9 @@ const OllamaResponseSchema = z.object({
 type OllamaResponse = z.infer<typeof OllamaResponseSchema>;
 
 export async function callOllama(prompt: string): Promise<string> {
+    const model = process.env.OLLAMA_MODEL || 'gpt-oss:20b';
     const requestBody = {
-        model: 'gpt-oss:20b',
+        model,
         prompt,
         stream: false,
     };

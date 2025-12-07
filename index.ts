@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { runBashCommand } from './tools/bash-tool';
 import { readFile } from './tools/file-io';
 import { runAgent } from './agent';

@@ -1,6 +1,6 @@
 # progagent
 
-Coding agent.
+Coding agent built using the [same stack as Claude Code](https://newsletter.pragmaticengineer.com/p/how-claude-code-is-built).
 
 [![Demo](https://img.youtube.com/vi/bTsR5GdWe5A/0.jpg)](https://www.youtube.com/watch?v=bTsR5GdWe5A)
 

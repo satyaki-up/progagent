@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import TextInput from 'ink-text-input';
-import { runAgentWithEvents, AgentEvent } from './agent-runner';
+import { runAgentWithEvents } from './agent-runner';
+import type { AgentEvent } from './agent-runner';
 
 const VERBS = [
     'Toiling', 'Working', 'Calculating', 'Computing', 'Analyzing', 'Processing', 'Evaluating',
@@ -39,6 +40,8 @@ function App() {
     const [isWaitingForInput, setIsWaitingForInput] = useState(true);
     const [currentVerb, setCurrentVerb] = useState('Processing');
     const [verbColor, setVerbColor] = useState('cyanBright');
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const [startTime, setStartTime] = useState<number | null>(null);
     const [agentState, setAgentState] = useState<AgentState>({
         prompt: '',
         isRunning: false,
@@ -54,21 +57,41 @@ function App() {
     const brightColors = ['cyanBright', 'greenBright', 'yellowBright', 'magentaBright', 'blueBright', 'redBright', 'whiteBright'];
 
     useEffect(() => {
-        if (!agentState.isRunning) return;
+        if (!agentState.isRunning) {
+            setElapsedSeconds(0);
+            setStartTime(null);
+            return;
+        }
 
-        const interval = setInterval(() => {
-            const randomVerb = VERBS[Math.floor(Math.random() * VERBS.length)];
-            const randomColor = brightColors[Math.floor(Math.random() * brightColors.length)];
+        if (startTime === null) {
+            setStartTime(Date.now());
+        }
+
+        const verbInterval = setInterval(() => {
+            const randomVerb = VERBS[Math.floor(Math.random() * VERBS.length)] || 'Processing';
+            const randomColor = brightColors[Math.floor(Math.random() * brightColors.length)] || 'cyanBright';
             setCurrentVerb(randomVerb);
             setVerbColor(randomColor);
         }, 2000);
 
-        return () => clearInterval(interval);
-    }, [agentState.isRunning]);
+        const timerInterval = setInterval(() => {
+            if (startTime !== null) {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                setElapsedSeconds(elapsed);
+            }
+        }, 1000);
+
+        return () => {
+            clearInterval(verbInterval);
+            clearInterval(timerInterval);
+        };
+    }, [agentState.isRunning, startTime]);
 
     const handleSubmit = async (prompt: string) => {
         if (!prompt.trim()) return;
 
+        setElapsedSeconds(0);
+        setStartTime(Date.now());
         setAgentState({
             prompt: prompt.trim(),
             isRunning: true,
@@ -241,13 +264,14 @@ function App() {
                 ) : (
                     <Text>
                         <Text color={verbColor as any} bold>{currentVerb}</Text>
-                        <Text color="gray">... (Press ESC to exit when done)</Text>
+                        <Text color={verbColor as any}> ({elapsedSeconds}s)... </Text>
+                        <Text color="gray">(Press ESC to exit when done)</Text>
                     </Text>
                 )}
             </Box>
 
             <Box marginTop={1}>
-                <Text color="dim" fontSize={11}>
+                <Text color="dim">
                     Press ESC to exit
                 </Text>
             </Box>
