@@ -59,15 +59,14 @@ export function parseToolFromResponse(toolContent: string): ParsedTool | null {
                 // Simple template literal with no expressions
                 args.push(arg.quasis[0].value.raw);
             } else {
-                // For other types, convert to string representation
-                // This handles edge cases but may not be perfect
+                // For other types, convert to string representation. Imperfect.
                 return null;
             }
         }
         
         return { toolName, args, toolCall };
     } catch (error) {
-        // Parsing failed - return null
+        // Parsing failed
         return null;
     }
 }

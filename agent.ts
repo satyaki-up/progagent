@@ -3,6 +3,7 @@ import { callOllama } from './model';
 import { runBashCommand } from './tools/bash-tool';
 import { readFile, writeFile } from './tools/file-io';
 import { parseToolFromResponse } from './tools/parsing';
+import { validateToolArgs } from './tools/schemas';
 
 const eta = new Eta({ views: './templates' });
 
@@ -35,7 +36,6 @@ export async function runAgent(prompt: string): Promise<string> {
         
         const answerMatch = modelResponse.match(/<answer>([\s\S]*?)<\/answer>/i);
         if (answerMatch && answerMatch[1]) {
-            // Answer.
             return answerMatch[1].trim();
         }
 
@@ -58,35 +58,40 @@ export async function runAgent(prompt: string): Promise<string> {
         const { toolName, args, toolCall } = parsedTool;
         console.log(`Executing tool: ${toolName}(${args.join(', ')})`);
 
+        const validation = validateToolArgs(toolName, args);
+        if (!validation.success) {
+            const observation = `Error: ${validation.error}`;
+            console.log('Tool result:', observation);
+            conversationHistory += `<think>Validation failed</think>\n`;
+            conversationHistory += `<tool>\n    <name>${toolName}</name>\n    <call>${toolCall}</call>\n</tool>\n\n`;
+            conversationHistory += `OBSERVATION: ${observation}\n\n`;
+            continue;
+        }
+
         let observation: string;
         try {
             switch (toolName) {
-                case 'runBashCommand':
-                    if (args.length !== 1 || !args[0]) {
-                        observation = `Error: runBashCommand requires 1 argument (command), got ${args.length}`;
-                        break;
-                    }
-                    const bashResult = await runBashCommand(args[0]);
+                case 'runBashCommand': {
+                    const command = args[0]!;
+                    const bashResult = await runBashCommand(command);
                     observation = `Exit code: ${bashResult.status}\nOutput:\n${bashResult.output}`;
                     break;
+                }
 
-                case 'readFile':
-                    if (args.length !== 1 || !args[0]) {
-                        observation = `Error: readFile requires 1 argument (filename), got ${args.length}`;
-                        break;
-                    }
-                    const fileContent = await readFile(args[0]);
+                case 'readFile': {
+                    const filename = args[0]!;
+                    const fileContent = await readFile(filename);
                     observation = `File contents:\n${fileContent}`;
                     break;
+                }
 
-                case 'writeFile':
-                    if (args.length !== 2 || !args[0] || !args[1]) {
-                        observation = `Error: writeFile requires 2 arguments (filename, content), got ${args.length}`;
-                        break;
-                    }
-                    await writeFile(args[0], args[1]);
-                    observation = `Successfully wrote to ${args[0]}`;
+                case 'writeFile': {
+                    const filename = args[0]!;
+                    const content = args[1]!;
+                    await writeFile(filename, content);
+                    observation = `Successfully wrote to ${filename}`;
                     break;
+                }
 
                 default:
                     observation = `Error: Unknown tool "${toolName}". Available tools: runBashCommand, readFile, writeFile`;
